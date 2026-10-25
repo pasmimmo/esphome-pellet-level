@@ -1,0 +1,19 @@
+name: ✨ Feature Request
+description: Suggest an enhancement, filter improvement, or Home Assistant automation
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: Describe the feature or improvement you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: How would this help during daily pellet stove operation?
+

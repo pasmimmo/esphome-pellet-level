@@ -1,0 +1,52 @@
+# ==============================================================================
+# D1 Pellet Level Monitor - Home Assistant Lovelace Dashboard Card
+# ==============================================================================
+# Paste this configuration into a Manual Card (or View) in your Home Assistant
+# Lovelace Dashboard. Uses only built-in Home Assistant cards.
+# ==============================================================================
+
+type: vertical-stack
+cards:
+  # 1. Visual Hopper Level Gauge with Color Severity Zones
+  - type: gauge
+    entity: sensor.d1_livello_pellet_pellet_level
+    name: Livello Serbatoio Pellet
+    unit: "%"
+    min: 0
+    max: 100
+    needle: true
+    severity:
+      green: 40
+      yellow: 20
+      red: 0
+
+  # 2. Primary Telemetry & Instant Measure Button
+  - type: entities
+    title: 🔥 Stato Scorta Pellet
+    show_header_toggle: false
+    entities:
+      - entity: text_sensor.d1_livello_pellet_hopper_status
+        name: Stato Serbatoio
+      - entity: sensor.d1_livello_pellet_pellet_remaining
+        name: Pellet Residuo Stimato
+      - entity: binary_sensor.d1_livello_pellet_low_pellet_reserve
+        name: Allarme Riserva
+      - entity: sensor.d1_livello_pellet_pellet_distance
+        name: Distanza Laser ToF
+      - entity: button.d1_livello_pellet_measure_pellet_level_now
+        name: Aggiorna Lettura Adesso
+
+  # 3. Live Calibration Parameters (Persisted in ESP8266 Flash)
+  - type: entities
+    title: ⚙️ Taratura Serbatoio (Live)
+    show_header_toggle: false
+    entities:
+      - entity: number.d1_livello_pellet_full_tank_distance_100
+        name: Distanza Serbatoio Pieno (100%)
+      - entity: number.d1_livello_pellet_empty_tank_distance_0
+        name: Distanza Serbatoio Vuoto (0%)
+      - entity: number.d1_livello_pellet_tank_capacity
+        name: Capacità Totale Serbatoio (kg)
+      - entity: number.d1_livello_pellet_low_pellet_alert_threshold
+        name: Soglia Allarme Riserva (%)
+

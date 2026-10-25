@@ -1,0 +1,46 @@
+# ==============================================================================
+# CORE & BASE SYSTEM
+# ==============================================================================
+# Defines the ESP8266 Wemos D1 Mini architecture, flash persistence, logging,
+# encrypted Home Assistant API, OTA updates, and Wi-Fi with captive portal.
+# ==============================================================================
+
+substitutions:
+  device_name: "d1-livello-pellet"
+  friendly_name: "D1 Livello Pellet"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.10.0
+  name_add_mac_suffix: false
+
+esp8266:
+  board: d1_mini
+  # Enable flash persistence so runtime calibration parameters (number entities)
+  # survive power cycles and OTA updates.
+  restore_from_flash: true
+
+logger:
+  level: INFO
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+  # Light power saving reduces ESP8266 thermal dissipation inside the stove
+  # enclosure while keeping Home Assistant API latency low.
+  power_save_mode: LIGHT
+
+  # Fallback Access Point if Wi-Fi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "${device_name}"
+
+captive_portal:
+

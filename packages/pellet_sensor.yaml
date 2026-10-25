@@ -1,0 +1,210 @@
+# ==============================================================================
+# PELLET LEVEL SENSOR & HOPPER TELEMETRY (VL53L0X ToF)
+# ==============================================================================
+# - I2C Bus: D2 (GPIO4 SDA), D1 (GPIO5 SCL) at 100kHz for EMI immunity
+# - ToF Sensor: VL53L0X with dual-stage anti-dust filtering (Median + SMA)
+# - Dynamic Calibration: HA-configurable full/empty distances, tank capacity,
+#   and low-reserve alert threshold persisted in flash
+# - Calculated Telemetry: Pellet Level (%), Remaining Weight (kg), Low Reserve
+#   Binary Alert, and Hopper Status Text Sensor
+# ==============================================================================
+
+substitutions:
+  friendly_name: "D1 Livello Pellet"
+  i2c_sda_pin: "D2"
+  i2c_scl_pin: "D1"
+  tof_update_interval: "30s"
+  default_min_distance: "0.100"
+  default_max_distance: "0.202"
+  default_tank_capacity_kg: "15.0"
+  default_low_threshold_pct: "20.0"
+
+# I2C bus configured at standard 100kHz frequency to maximize signal integrity
+# over sensor wiring near stove motors and igniters.
+i2c:
+  sda: ${i2c_sda_pin}
+  scl: ${i2c_scl_pin}
+  scan: false
+  frequency: 100kHz
+
+# Runtime-configurable calibration parameters persisted in flash memory
+number:
+  - platform: template
+    id: cal_min_distance
+    name: "Full Tank Distance (100%)"
+    icon: "mdi:arrow-collapse-up"
+    unit_of_measurement: "m"
+    entity_category: config
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_min_distance}
+    min_value: 0.030
+    max_value: 1.000
+    step: 0.001
+    on_value:
+      then:
+        - component.update: pellet_level
+
+  - platform: template
+    id: cal_max_distance
+    name: "Empty Tank Distance (0%)"
+    icon: "mdi:arrow-expand-down"
+    unit_of_measurement: "m"
+    entity_category: config
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_max_distance}
+    min_value: 0.050
+    max_value: 1.500
+    step: 0.001
+    on_value:
+      then:
+        - component.update: pellet_level
+
+  - platform: template
+    id: cal_tank_capacity_kg
+    name: "Tank Capacity"
+    icon: "mdi:weight-kilogram"
+    unit_of_measurement: "kg"
+    entity_category: config
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_tank_capacity_kg}
+    min_value: 5.0
+    max_value: 150.0
+    step: 0.5
+    on_value:
+      then:
+        - component.update: pellet_remaining_kg
+
+  - platform: template
+    id: cal_low_threshold_pct
+    name: "Low Pellet Alert Threshold"
+    icon: "mdi:bell-alert-outline"
+    unit_of_measurement: "%"
+    entity_category: config
+    mode: slider
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_low_threshold_pct}
+    min_value: 5.0
+    max_value: 50.0
+    step: 1.0
+    on_value:
+      then:
+        - component.update: pellet_hopper_status
+
+sensor:
+  # Primary optical Time-of-Flight (ToF) distance measurement
+  - platform: vl53l0x
+    name: "Pellet Distance"
+    id: pellet_distance
+    icon: "mdi:laser-pointer"
+    update_interval: ${tof_update_interval}
+    accuracy_decimals: 3
+    state_class: measurement
+    unit_of_measurement: "m"
+    # Dual-stage filter pipeline:
+    # 1. filter_out nan: discards invalid optical timeouts
+    # 2. median (window 5): eliminates airborne sawdust spikes during refills
+    # 3. sliding_window_moving_average (window 6): smooths pellet cone surface ripples
+    filters:
+      - filter_out: nan
+      - median:
+          window_size: 5
+          send_every: 1
+      - sliding_window_moving_average:
+          window_size: 6
+          send_every: 1
+    on_value:
+      then:
+        - component.update: pellet_level
+
+  # Calculated hopper fill percentage (0% - 100%)
+  - platform: template
+    name: "Pellet Level"
+    id: pellet_level
+    icon: "mdi:gauge"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: never
+    lambda: |-
+      const float d = id(pellet_distance).state;
+      if (isnan(d)) return NAN;
+
+      const float min_d = id(cal_min_distance).state;
+      const float max_d = id(cal_max_distance).state;
+
+      // Guard against invalid calibration where max_d <= min_d
+      if (isnan(min_d) || isnan(max_d) || max_d <= min_d) {
+        return NAN;
+      }
+
+      // Linear mapping from [min_d .. max_d] to [100% .. 0%]
+      return ((max_d - d) / (max_d - min_d)) * 100.0f;
+    filters:
+      - clamp:
+          min_value: 0.0
+          max_value: 100.0
+    on_value:
+      then:
+        - component.update: pellet_remaining_kg
+        - component.update: pellet_hopper_status
+
+  # Estimated remaining pellet mass in kilograms
+  - platform: template
+    name: "Pellet Remaining"
+    id: pellet_remaining_kg
+    icon: "mdi:sack"
+    unit_of_measurement: "kg"
+    device_class: weight
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: never
+    lambda: |-
+      const float level = id(pellet_level).state;
+      const float capacity = id(cal_tank_capacity_kg).state;
+      if (isnan(level) || isnan(capacity)) return NAN;
+      return (level / 100.0f) * capacity;
+
+binary_sensor:
+  # Problem alert triggered when pellet level drops at or below the reserve threshold
+  - platform: template
+    name: "Low Pellet Reserve"
+    id: pellet_low_reserve
+    icon: "mdi:fire-alert"
+    device_class: problem
+    lambda: |-
+      const float level = id(pellet_level).state;
+      const float threshold = id(cal_low_threshold_pct).state;
+      if (isnan(level) || isnan(threshold)) return false;
+      return level <= threshold;
+
+text_sensor:
+  # Human-readable hopper status for Home Assistant dashboard badges
+  - platform: template
+    name: "Hopper Status"
+    id: pellet_hopper_status
+    icon: "mdi:storage-tank"
+    update_interval: never
+    lambda: |-
+      const float level = id(pellet_level).state;
+      const float threshold = id(cal_low_threshold_pct).state;
+      if (isnan(level)) {
+        return {"Initializing"};
+      }
+      if (!isnan(threshold) && level <= threshold) {
+        return {"Reserve (Refill)"};
+      }
+      if (level < 40.0f) {
+        return {"Low"};
+      }
+      if (level >= 85.0f) {
+        return {"Full"};
+      }
+      return {"OK"};
+

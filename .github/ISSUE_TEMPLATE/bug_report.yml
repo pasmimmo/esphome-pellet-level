@@ -1,0 +1,28 @@
+name: 🐛 Bug Report
+description: Report an issue with the VL53L0X sensor, ESP8266 firmware, or Home Assistant integration
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear description of the problem.
+    validations:
+      required: true
+
+  - type: input
+    id: esphome_version
+    attributes:
+      label: ESPHome Version
+      placeholder: "e.g. 2024.10.2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: ESPHome Serial / OTA Logs
+      description: Paste relevant log output from the device.
+      render: shell
+

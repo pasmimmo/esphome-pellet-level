@@ -1,0 +1,57 @@
+# ==============================================================================
+# DIAGNOSTICS & MAINTENANCE CONTROLS
+# ==============================================================================
+# - Connectivity telemetry: Wi-Fi RSSI, IP, SSID, MAC Address
+# - System health: Uptime, ESPHome Firmware Version
+# - Maintenance controls: Manual ToF Trigger ("Measure Now") and Device Restart
+# ==============================================================================
+
+sensor:
+  - platform: wifi_signal
+    id: wifi_signal_db
+    name: "Wi-Fi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    id: uptime_sensor
+    name: "Uptime"
+    update_interval: 60s
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: ip_address
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      id: wifi_ssid
+      name: "Wi-Fi SSID"
+      entity_category: diagnostic
+    mac_address:
+      id: wifi_mac
+      name: "Wi-Fi MAC Address"
+      entity_category: diagnostic
+
+  - platform: version
+    id: esphome_version_text
+    name: "ESPHome Version"
+    hide_timestamp: true
+    entity_category: diagnostic
+
+button:
+  # Forces an immediate ToF sensor measurement (useful right after refilling)
+  - platform: template
+    id: force_measure_button
+    name: "Measure Pellet Level Now"
+    icon: "mdi:refresh"
+    on_press:
+      - component.update: pellet_distance
+
+  # Remote reboot button for maintenance
+  - platform: restart
+    id: restart_device_button
+    name: "Restart"
+    entity_category: diagnostic
+

@@ -1,0 +1,307 @@
+# ==============================================================================
+# D1 Pellet Level Monitor (Wemos D1 Mini + VL53L0X ToF)
+# ESPHome Standalone Monolithic Firmware Configuration
+# ==============================================================================
+# Single-file all-in-one version of the modular firmware.
+# Synchronized 1:1 with d1-livello-pellet.yaml and packages/*.yaml.
+# ==============================================================================
+
+substitutions:
+  # Unique device hostname and Home Assistant entity prefix
+  device_name: "d1-livello-pellet"
+  friendly_name: "D1 Livello Pellet"
+
+  # I2C Pinout for Wemos D1 Mini
+  i2c_sda_pin: "D2"
+  i2c_scl_pin: "D1"
+
+  # Sensor polling interval (30s preserves laser diode lifespan and reduces traffic)
+  tof_update_interval: "30s"
+
+  # Default hopper calibration values (can also be adjusted live in Home Assistant)
+  default_min_distance: "0.100"       # Distance in meters when hopper is 100% FULL
+  default_max_distance: "0.202"       # Distance in meters when hopper is 0% EMPTY
+  default_tank_capacity_kg: "15.0"    # Total hopper capacity in kilograms
+  default_low_threshold_pct: "20.0"   # Low pellet reserve alert threshold (%)
+
+# ==============================================================================
+# 1. CORE & BASE SYSTEM
+# ==============================================================================
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.10.0
+  name_add_mac_suffix: false
+
+esp8266:
+  board: d1_mini
+  # Enable flash persistence so runtime calibration parameters (number entities)
+  # survive power cycles and OTA updates.
+  restore_from_flash: true
+
+logger:
+  level: INFO
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+  # Light power saving reduces ESP8266 thermal dissipation inside the stove
+  # enclosure while keeping Home Assistant API latency low.
+  power_save_mode: LIGHT
+
+  # Fallback Access Point if Wi-Fi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "${device_name}"
+
+captive_portal:
+
+# ==============================================================================
+# 2. I2C BUS & RUNTIME CALIBRATION PARAMETERS
+# ==============================================================================
+i2c:
+  sda: ${i2c_sda_pin}
+  scl: ${i2c_scl_pin}
+  scan: false
+  frequency: 100kHz
+
+number:
+  - platform: template
+    id: cal_min_distance
+    name: "Full Tank Distance (100%)"
+    icon: "mdi:arrow-collapse-up"
+    unit_of_measurement: "m"
+    entity_category: config
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_min_distance}
+    min_value: 0.030
+    max_value: 1.000
+    step: 0.001
+    on_value:
+      then:
+        - component.update: pellet_level
+
+  - platform: template
+    id: cal_max_distance
+    name: "Empty Tank Distance (0%)"
+    icon: "mdi:arrow-expand-down"
+    unit_of_measurement: "m"
+    entity_category: config
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_max_distance}
+    min_value: 0.050
+    max_value: 1.500
+    step: 0.001
+    on_value:
+      then:
+        - component.update: pellet_level
+
+  - platform: template
+    id: cal_tank_capacity_kg
+    name: "Tank Capacity"
+    icon: "mdi:weight-kilogram"
+    unit_of_measurement: "kg"
+    entity_category: config
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_tank_capacity_kg}
+    min_value: 5.0
+    max_value: 150.0
+    step: 0.5
+    on_value:
+      then:
+        - component.update: pellet_remaining_kg
+
+  - platform: template
+    id: cal_low_threshold_pct
+    name: "Low Pellet Alert Threshold"
+    icon: "mdi:bell-alert-outline"
+    unit_of_measurement: "%"
+    entity_category: config
+    mode: slider
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_low_threshold_pct}
+    min_value: 5.0
+    max_value: 50.0
+    step: 1.0
+    on_value:
+      then:
+        - component.update: pellet_hopper_status
+
+# ==============================================================================
+# 3. SENSORS (ToF, LEVEL %, WEIGHT KG & DIAGNOSTICS)
+# ==============================================================================
+sensor:
+  # Primary optical Time-of-Flight (ToF) distance measurement
+  - platform: vl53l0x
+    name: "Pellet Distance"
+    id: pellet_distance
+    icon: "mdi:laser-pointer"
+    update_interval: ${tof_update_interval}
+    accuracy_decimals: 3
+    state_class: measurement
+    unit_of_measurement: "m"
+    # Dual-stage filter pipeline:
+    # 1. filter_out nan: discards invalid optical timeouts
+    # 2. median (window 5): eliminates airborne sawdust spikes during refills
+    # 3. sliding_window_moving_average (window 6): smooths pellet cone surface ripples
+    filters:
+      - filter_out: nan
+      - median:
+          window_size: 5
+          send_every: 1
+      - sliding_window_moving_average:
+          window_size: 6
+          send_every: 1
+    on_value:
+      then:
+        - component.update: pellet_level
+
+  # Calculated hopper fill percentage (0% - 100%)
+  - platform: template
+    name: "Pellet Level"
+    id: pellet_level
+    icon: "mdi:gauge"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: never
+    lambda: |-
+      const float d = id(pellet_distance).state;
+      if (isnan(d)) return NAN;
+
+      const float min_d = id(cal_min_distance).state;
+      const float max_d = id(cal_max_distance).state;
+
+      // Guard against invalid calibration where max_d <= min_d
+      if (isnan(min_d) || isnan(max_d) || max_d <= min_d) {
+        return NAN;
+      }
+
+      // Linear mapping from [min_d .. max_d] to [100% .. 0%]
+      return ((max_d - d) / (max_d - min_d)) * 100.0f;
+    filters:
+      - clamp:
+          min_value: 0.0
+          max_value: 100.0
+    on_value:
+      then:
+        - component.update: pellet_remaining_kg
+        - component.update: pellet_hopper_status
+
+  # Estimated remaining pellet mass in kilograms
+  - platform: template
+    name: "Pellet Remaining"
+    id: pellet_remaining_kg
+    icon: "mdi:sack"
+    unit_of_measurement: "kg"
+    device_class: weight
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: never
+    lambda: |-
+      const float level = id(pellet_level).state;
+      const float capacity = id(cal_tank_capacity_kg).state;
+      if (isnan(level) || isnan(capacity)) return NAN;
+      return (level / 100.0f) * capacity;
+
+  # Diagnostics: Wi-Fi RSSI & Uptime
+  - platform: wifi_signal
+    id: wifi_signal_db
+    name: "Wi-Fi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    id: uptime_sensor
+    name: "Uptime"
+    update_interval: 60s
+    entity_category: diagnostic
+
+# ==============================================================================
+# 4. BINARY SENSORS, TEXT SENSORS & MAINTENANCE BUTTONS
+# ==============================================================================
+binary_sensor:
+  # Problem alert triggered when pellet level drops at or below the reserve threshold
+  - platform: template
+    name: "Low Pellet Reserve"
+    id: pellet_low_reserve
+    icon: "mdi:fire-alert"
+    device_class: problem
+    lambda: |-
+      const float level = id(pellet_level).state;
+      const float threshold = id(cal_low_threshold_pct).state;
+      if (isnan(level) || isnan(threshold)) return false;
+      return level <= threshold;
+
+text_sensor:
+  # Human-readable hopper status for Home Assistant dashboard badges
+  - platform: template
+    name: "Hopper Status"
+    id: pellet_hopper_status
+    icon: "mdi:storage-tank"
+    update_interval: never
+    lambda: |-
+      const float level = id(pellet_level).state;
+      const float threshold = id(cal_low_threshold_pct).state;
+      if (isnan(level)) {
+        return {"Initializing"};
+      }
+      if (!isnan(threshold) && level <= threshold) {
+        return {"Reserve (Refill)"};
+      }
+      if (level < 40.0f) {
+        return {"Low"};
+      }
+      if (level >= 85.0f) {
+        return {"Full"};
+      }
+      return {"OK"};
+
+  - platform: wifi_info
+    ip_address:
+      id: ip_address
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      id: wifi_ssid
+      name: "Wi-Fi SSID"
+      entity_category: diagnostic
+    mac_address:
+      id: wifi_mac
+      name: "Wi-Fi MAC Address"
+      entity_category: diagnostic
+
+  - platform: version
+    id: esphome_version_text
+    name: "ESPHome Version"
+    hide_timestamp: true
+    entity_category: diagnostic
+
+button:
+  # Forces an immediate ToF sensor measurement (useful right after refilling)
+  - platform: template
+    id: force_measure_button
+    name: "Measure Pellet Level Now"
+    icon: "mdi:refresh"
+    on_press:
+      - component.update: pellet_distance
+
+  # Remote reboot button for maintenance
+  - platform: restart
+    id: restart_device_button
+    name: "Restart"
+    entity_category: diagnostic
+

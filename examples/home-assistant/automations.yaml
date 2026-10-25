@@ -1,0 +1,125 @@
+# ==============================================================================
+# D1 Pellet Level Monitor - Home Assistant Automation Examples
+# ==============================================================================
+# Ready-to-use automations integrating the D1 Pellet sensor with:
+# - SmartDisplay ESP32-S3 (visual notifications + TTS voice alerts)
+# - Home Assistant Companion App (mobile push notifications)
+# - Seasonal pellet bag consumption tracking
+# ==============================================================================
+
+automation:
+  # ----------------------------------------------------------------------------
+  # 1. Low Pellet Reserve Alert (SmartDisplay UI + TTS + Mobile Push)
+  # ----------------------------------------------------------------------------
+  - id: pellet_low_reserve_alert
+    alias: "Pellet Stove - Low Reserve Alert"
+    description: "Alerts via SmartDisplay, TTS voice, and smartphone when pellet level hits reserve."
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.d1_livello_pellet_low_pellet_reserve
+        from: "off"
+        to: "on"
+        for:
+          minutes: 2
+    action:
+      # 1. Visual alert card on SmartDisplay ESP32-S3
+      - action: esphome.smartdisplay_send_notification
+        data:
+          message: >
+            Riserva Pellet! Livello al {{ states('sensor.d1_livello_pellet_pellet_level') }}%
+            ({{ states('sensor.d1_livello_pellet_pellet_remaining') }} kg residui).
+          icon: "thermometer"
+          text_color: "orange"
+          timeout: 120
+
+      # 2. Voice announcement on SmartDisplay speaker (only during daytime)
+      - condition: time
+        after: "08:00:00"
+        before: "22:00:00"
+      - action: tts.speak
+        target:
+          entity_id: tts.google_translate_en_com
+        data:
+          media_player_entity_id: media_player.smartdisplay_speaker
+          message: >
+            Attenzione, il serbatoio del pellet è in riserva. Rimangono circa
+            {{ states('sensor.d1_livello_pellet_pellet_remaining') }} chilogrammi.
+
+      # 3. Push notification to smartphone
+      - action: notify.notify
+        data:
+          title: "🔥 Stufa a Pellet in Riserva"
+          message: >
+            Livello serbatoio al {{ states('sensor.d1_livello_pellet_pellet_level') }}%
+            (~{{ states('sensor.d1_livello_pellet_pellet_remaining') }} kg). Ricordati di caricare un sacco!
+
+  # ----------------------------------------------------------------------------
+  # 2. Automatic Refill Detection & Bag Counter
+  # ----------------------------------------------------------------------------
+  - id: pellet_refill_detected
+    alias: "Pellet Stove - Automatic Refill Detection"
+    description: "Detects when the hopper is refilled (>85%) after being low and logs a bag."
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.d1_livello_pellet_pellet_level
+        above: 85
+        for:
+          minutes: 1
+    condition:
+      - condition: template
+        value_template: "{{ trigger.from_state.state | float(100) < 60 }}"
+    action:
+      - action: esphome.smartdisplay_send_notification
+        data:
+          message: >
+            Serbatoio pellet caricato al {{ states('sensor.d1_livello_pellet_pellet_level') }}%
+            ({{ states('sensor.d1_livello_pellet_pellet_remaining') }} kg).
+          icon: "sentiment_satisfied"
+          text_color: "green"
+          timeout: 30
+
+  # ----------------------------------------------------------------------------
+  # 3. Evening Pre-Ignition Hopper Check (17:30)
+  # ----------------------------------------------------------------------------
+  - id: pellet_evening_precheck
+    alias: "Pellet Stove - Evening Pre-Ignition Check"
+    description: "Warns at 17:30 if the hopper has less than 35% before evening heating starts."
+    trigger:
+      - platform: time
+        at: "17:30:00"
+    condition:
+      - condition: numeric_state
+        entity_id: sensor.d1_livello_pellet_pellet_level
+        below: 35
+    action:
+      - action: esphome.smartdisplay_send_notification
+        data:
+          message: >
+            Controllo serale: pellet al {{ states('sensor.d1_livello_pellet_pellet_level') }}%.
+            Consigliato rabbocco per la serata.
+          icon: "info"
+          text_color: "yellow"
+          timeout: 60
+
+  # ----------------------------------------------------------------------------
+  # 4. Optical Sensor Maintenance Alert (Dust on VL53L0X Lens)
+  # ----------------------------------------------------------------------------
+  - id: pellet_sensor_maintenance_alert
+    alias: "Pellet Stove - VL53L0X Optical Lens Maintenance"
+    description: "Notifies if the ToF distance sensor stays unavailable or NaN for 15 minutes."
+    trigger:
+      - platform: state
+        entity_id: sensor.d1_livello_pellet_pellet_distance
+        to:
+          - "unavailable"
+          - "unknown"
+        for:
+          minutes: 15
+    action:
+      - action: notify.notify
+        data:
+          title: "⚠️ Manutenzione Sensore Pellet"
+          message: >
+            Il sensore laser VL53L0X non risponde o ha la lente ostruita dalla polvere.
+            Verifica il collegamento o pulisci il vetrino ottico con un panno asciutto.
+

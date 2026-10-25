@@ -1,0 +1,32 @@
+# ==============================================================================
+# D1 Pellet Level Monitor (Wemos D1 Mini + VL53L0X ToF)
+# ESPHome Modular Firmware Configuration
+# ==============================================================================
+# Target Hardware: ESP8266 Wemos D1 Mini (4MB Flash)
+# Sensor: VL53L0X Time-of-Flight (ToF) Laser Ranging Module (I2C)
+# Wiring: SDA -> D2 (GPIO4), SCL -> D1 (GPIO5), VCC -> 3.3V, GND -> GND
+# ==============================================================================
+
+substitutions:
+  # Unique device hostname and Home Assistant entity prefix
+  device_name: "d1-livello-pellet"
+  friendly_name: "D1 Livello Pellet"
+
+  # I2C Pinout for Wemos D1 Mini
+  i2c_sda_pin: "D2"
+  i2c_scl_pin: "D1"
+
+  # Sensor polling interval (30s preserves laser diode lifespan and reduces traffic)
+  tof_update_interval: "30s"
+
+  # Default hopper calibration values (can also be adjusted live in Home Assistant)
+  default_min_distance: "0.100"       # Distance in meters when hopper is 100% FULL
+  default_max_distance: "0.202"       # Distance in meters when hopper is 0% EMPTY
+  default_tank_capacity_kg: "15.0"    # Total hopper capacity in kilograms
+  default_low_threshold_pct: "20.0"   # Low pellet reserve alert threshold (%)
+
+# Modular package imports
+packages:
+  core: !include packages/core.yaml
+  pellet_sensor: !include packages/pellet_sensor.yaml
+  diagnostics: !include packages/diagnostics.yaml
