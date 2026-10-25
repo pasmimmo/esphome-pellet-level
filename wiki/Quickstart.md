@@ -29,3 +29,4 @@ Open the device in **Settings -> Devices & Services -> ESPHome -> D1 Livello Pel
 * Set **`Empty Tank Distance (0%)`** to the `Pellet Distance` reading when the hopper is empty (default `0.202 m`).
 * Set **`Full Tank Distance (100%)`** to the `Pellet Distance` reading when the hopper is full (default `0.100 m`).
 * Set **`Tank Capacity`** to your hopper's total capacity in kilograms (default `15.0 kg`).
+

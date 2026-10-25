@@ -34,3 +34,4 @@
 * Added ready-to-use automations ([`examples/home-assistant/automations.yaml`](examples/home-assistant/automations.yaml)) integrating with **[SmartDisplay ESP32-S3](https://github.com/pasmimmo/SmartDisplay)** (visual notification cards + TTS voice announcements) and mobile push alerts.
 * Added Lovelace dashboard gauge and calibration card ([`examples/home-assistant/dashboard_card.yaml`](examples/home-assistant/dashboard_card.yaml)).
 * Documented 4 formal Architecture Decision Records in [`docs/ARCHITECTURE_DECISIONS.md`](docs/ARCHITECTURE_DECISIONS.md) and real hardware installation in [`docs/HARDWARE.md`](docs/HARDWARE.md).
+

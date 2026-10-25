@@ -99,3 +99,15 @@ Progetto firmware open-source basato su ESPHome per il monitoraggio ottico Time-
 - [x] Foto reali dell'hardware e del montaggio nella stufa (`d1_pellet_components.jpg`, `d1_pellet_hopper_mount.jpg`, `d1_pellet_closed_lid.jpg`)
 - [x] Galleria fotografica integrata in `README.md`, `docs/HARDWARE.md` e `wiki/`
 - [x] Immagine banner per anteprima social su GitHub ([`.github/assets/banner.png`](.github/assets/banner.png) $1280 \times 640$)
+
+#### 3. 🤝 Standard Open Source & Dev Experience (DX)
+- [x] Guida per i contributori in [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [x] Template per le Issue di GitHub ([`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/)) e Pull Request ([`.github/pull_request_template.md`](.github/pull_request_template.md))
+- [x] Codice di condotta Contributor Covenant v2.1 in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+
+#### 4. 📸 Visual Showcase & Media Reali
+- [x] Cartella [`.github/assets/`](.github/assets/README.md) con guida asset
+- [x] Foto reali dell'hardware e del montaggio nella stufa (`d1_pellet_components.jpg`, `d1_pellet_hopper_mount.jpg`, `d1_pellet_closed_lid.jpg`)
+- [x] Galleria fotografica integrata in `README.md`, `docs/HARDWARE.md` e `wiki/`
+- [x] Immagine banner per anteprima social su GitHub ([`.github/assets/banner.png`](.github/assets/banner.png) $1280 \times 640$)
+

@@ -16,3 +16,4 @@ Using [`examples/home-assistant/automations.yaml`](../examples/home-assistant/au
 1. **Visual Notification Card**: Sends an orange `thermometer` alert card to **SmartDisplay** showing both `%` and remaining `kg`.
 2. **TTS Voice Announcement**: Announces the low pellet reserve over the SmartDisplay speaker during daytime hours (`08:00–22:00`).
 3. **Mobile Push Notification**: Sends an alert to the Home Assistant Companion App.
+

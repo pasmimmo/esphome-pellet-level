@@ -10,3 +10,4 @@
 ## 3. Changing Home Wi-Fi Router Without Opening the Junction Box
 * If the Wemos D1 Mini cannot reach your Wi-Fi network for 60 seconds, it automatically broadcasts a fallback hotspot named **`D1 Livello Pellet Hotspot`** (password: `d1-livello-pellet`).
 * Connect with your phone to configure the new Wi-Fi credentials via the Captive Portal without opening the stove enclosure!
+

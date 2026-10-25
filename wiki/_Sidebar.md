@@ -4,3 +4,4 @@
 * [🔧 Hardware & Mounting](Hardware-and-Mounting)
 * [📊 Home Assistant & SmartDisplay](Home-Assistant-Integration)
 * [🛠️ Troubleshooting](Troubleshooting)
+

@@ -22,3 +22,4 @@
 * Fasten the IP55 junction box directly onto the **metal safety grid** (`griglia salvamano`) using two crossed nylon zip-ties, aligning the bottom laser hole with one of the grid squares.
 * Leave a service cable loop near the lid hinge so the lid opens freely during pellet refills.
 * Route the USB power cable out through the **recessed lid handle slot** to avoid pinching the stove's rubber perimeter gasket.
+
